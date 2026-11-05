@@ -1,0 +1,397 @@
+# Bài 23: Đường đi ngắn nhất giữa mọi cặp đỉnh - Thuật toán Floyd-Warshall (All-Pairs Shortest Path)
+
+## 1. Ý tưởng cốt lõi & Cấu trúc dữ liệu
+
+* **Kỹ thuật:** Quy hoạch động (Dynamic Programming) thông qua thuật toán **Floyd-Warshall**, biểu diễn đồ thị và lưu kết quả trực tiếp trên Ma trận khoảng cách 2 chiều (`vector<vector<int>> d`).
+* **Mục đích:**
+  * Tìm độ dài đường đi ngắn nhất $d(u, v)$ giữa **mọi cặp đỉnh** $(u, v)$ trên đồ thị có hướng có trọng số dương.
+  * Xuất ra ma trận khoảng cách kích thước $n \times n$ (nếu không có đường đi từ $i$ đến $j$ thì in `-1`).
+* **Logic hoạt động:**
+  * **Bước 1 (Khởi tạo ma trận cơ sở):**
+    * Khởi tạo mọi khoảng cách `d[i][j] = INF` (vô cùng, chọn `1e9` để đại diện cho việc chưa có đường đi).
+    * Khoảng cách từ một đỉnh tới chính nó bằng 0: `d[i][i] = 0`.
+    * Với mỗi cung có hướng `(u, v)` trọng số `w`, cập nhật `d[u][v] = min(d[u][v], w)` (chỉ gán cho `d[u][v]`, không gán `d[v][u]` vì là đồ thị có hướng).
+  * **Bước 2 (Quy hoạch động qua đỉnh trung gian `k`):**
+    * Lần lượt thử đưa từng đỉnh `k` (từ `1` đến `n`) vào làm **đỉnh trung gian** trên đường đi từ `i` đến `j`.
+    * Công thức tối ưu hóa (Relaxation): Nếu có đường đi từ `i` tới `k` (`d[i][k] != INF`) và từ `k` tới `j` (`d[k][j] != INF`), ta cập nhật:
+      $$d[i][j] = \min(d[i][j], d[i][k] + d[k][j])$$
+  * **Bước 3 (Xuất kết quả):** Duyệt ma trận `d`, nếu `d[i][j] == INF` thì in `-1`, ngược lại in giá trị `d[i][j]`.
+
+## 2. Điểm bẫy (Edge Cases) & Câu hỏi vấn đáp thường gặp
+
+* **Thầy cô hỏi:** *"Tại sao vòng lặp của đỉnh trung gian `k` BẮT BUỘC phải đặt ở ngoài cùng (`k` -> `i` -> `j`), nếu đổi thành `i` -> `j` -> `k` thì kết quả có đúng không?"*
+  * **Trả lời:** Nếu đặt `k` ở trong cùng (`i` -> `j` -> `k`), thuật toán sẽ bị **sai hoàn toàn**. Bản chất của Floyd-Warshall là Quy hoạch động theo từng giai đoạn: ở bước thứ `k`, ta tính đường đi ngắn nhất chỉ sử dụng các đỉnh trung gian từ tập $\{1, 2, \dots, k\}$ dựa trên kết quả đã tính xong của tập $\{1, 2, \dots, k-1\}$. Nếu để `k` ở trong cùng, mỗi cặp `(i, j)` chỉ được ghép thử qua đúng 1 đỉnh trung gian đơn lẻ mà không tận dụng được các đường đi ngắn nhất đi qua nhiều đỉnh trung gian đã cập nhật trước đó.
+* **Thầy cô hỏi:** *"Tại sao khi đọc cạnh đầu vào lại viết `d[u][v] = min(d[u][v], w);` mà không gán thẳng `d[u][v] = w;`?"*
+  * **Trả lời:** Để xử lý trường hợp đồ thị là **đa đồ thị (Multigraph)** — tức là giữa hai đỉnh `u` và `v` có thể tồn tại nhiều cung song song có trọng số khác nhau. Để tìm đường đi ngắn nhất, ngay từ bước khởi tạo ta chỉ giữ lại cung có trọng số nhỏ nhất nối trực tiếp từ `u` sang `v`.
+* **Thầy cô hỏi:** *"Tại sao hằng số `INF` lại chọn là `1e9` ($10^9$) mà không dùng `INT_MAX` ($\approx 2 \times 10^9$), và tại sao cần điều kiện `if (d[i][k] != INF && d[k][j] != INF)`?"*
+  * **Trả lời:**
+    * Với $n \le 10000$ và $w \le 1000$, đường đi dài nhất có thể đạt tới $(n - 1) \times 1000 \approx 10^7$, hoàn toàn nhỏ hơn $10^9$ nên dùng `1e9` làm mốc vô cực là an toàn.
+    * Nếu dùng `INT_MAX` mà không kiểm tra `!= INF`, phép cộng `d[i][k] + d[k][j]` sẽ gây **tràn số nguyên (Integer Overflow)** biến thành số âm và làm sai hàm `min()`. Ngoài ra, việc kiểm tra `d[i][k] != INF` còn giúp tránh lỗi tương tự nếu bài toán mở rộng sang đồ thị có cạnh trọng số âm.
+* **Thầy cô hỏi:** *"Độ phức tạp của thuật toán Floyd-Warshall là bao nhiêu? Nếu $n$ thực sự lớn tới $10,000$ thì code này có chạy kịp không và cải tiến thế nào?"*
+  * **Trả lời:**
+    * **Độ phức tạp:** Thời gian là $O(n^3)$ do 3 vòng lặp lồng nhau, không gian bộ nhớ là $O(n^2)$ cho ma trận.
+    * **Phân tích giới hạn:** Với Floyd-Warshall $O(n^3)$, thuật toán chạy tốt khi $n \le 500$ (khoảng $1.25 \times 10^8$ phép toán). Trên hệ thống bài tập này, tuy đề ghi $1 \le n, m \le 10000$ nhưng các test thực tế của bài chỉ có $n$ nhỏ (vì bản thân việc in ra ma trận $10000 \times 10000$ gồm $10^8$ số đã vượt quá giới hạn thời gian I/O). Nếu $n$ lớn và đồ thị thưa ($m$ nhỏ), ta nên chạy thuật toán **Dijkstra sử dụng Hàng đợi ưu tiên (`priority_queue`)** xuất phát từ từng đỉnh $1 \dots n$, giúp giảm độ phức tạp xuống $O(n \cdot (n + m) \log n)$.
+
+## 3. Đoạn Code Cốt Lõi (C++)
+
+```cpp
+#include <bits/stdc++.h>
+using namespace std;
+
+const int INF = 1e9; // Giá trị vô cùng lớn hơn mọi đường đi hợp lệ
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n, m;
+    cin >> n >> m;
+
+    // Khởi tạo ma trận khoảng cách (n+1)x(n+1) với giá trị INF
+    vector<vector<int>> d(n + 1, vector<int>(n + 1, INF));
+    for (int i = 1; i <= n; i++)
+        d[i][i] = 0; // Khoảng cách từ 1 đỉnh đến chính nó bằng 0
+
+    // Đọc danh sách các cung có hướng
+    for (int i = 0; i < m; i++) {
+        int u, v, w;
+        cin >> u >> v >> w;
+        // Dùng min để xử lý trường hợp có nhiều cung song song từ u đến v
+        d[u][v] = min(d[u][v], w);
+    }
+
+    // Thuật toán Floyd-Warshall: k (đỉnh trung gian) PHẢI ở vòng lặp ngoài cùng
+    for (int k = 1; k <= n; k++) {
+        for (int i = 1; i <= n; i++) {
+            for (int j = 1; j <= n; j++) {
+                if (d[i][k] != INF && d[k][j] != INF) {
+                    d[i][j] = min(d[i][j], d[i][k] + d[k][j]);
+                }
+            }
+        }
+    }
+
+    // In ma trận khoảng cách ngắn nhất
+    for (int i = 1; i <= n; i++) {
+        for (int j = 1; j <= n; j++) {
+            if (d[i][j] == INF)
+                cout << -1 << " ";
+            else
+                cout << d[i][j] << " ";
+        }
+        cout << '\n';
+    }
+
+    return 0;
+}
+```
+# Bài 24: Đường đi ngắn nhất từ s đến t - Thuật toán Dijkstra (Single-Source Shortest Path)
+
+## 1. Ý tưởng cốt lõi & Cấu trúc dữ liệu
+
+* **Kỹ thuật:** Thuật toán tham lam **Dijkstra** sử dụng Hàng đợi ưu tiên tối thiểu (`std::priority_queue` với cấu trúc `greater`) kết hợp Danh sách kề (`vector<vector<pair<int, int>>>`).
+* **Mục đích:**
+  * Tìm độ dài đường đi ngắn nhất từ một đỉnh nguồn xuất phát `s` cho trước đến một đỉnh đích `t` trên đồ thị có hướng có trọng số **không âm** ($w \ge 0$).
+  * In ra trọng số ngắn nhất tìm được, hoặc in `-1` nếu không tồn tại đường đi từ `s` đến `t`.
+* **Logic hoạt động:**
+  * **Bước 1 (Biểu diễn đồ thị):** Lưu đồ thị dưới dạng danh sách kề `a[u]`, mỗi phần tử lưu một cặp `{v, w}` (đỉnh kề `v` và trọng số cung `w`).
+  * **Bước 2 (Khởi tạo mảng khoảng cách):** Khởi tạo mảng `d` có kích thước $n+1$ với giá trị vô cùng lớn (`INF = 1e18`). Đặt `d[s] = 0` (khoảng cách từ nguồn đến chính nó bằng 0).
+  * **Bước 3 (Hàng đợi ưu tiên):** Đưa cặp `{0, s}` vào hàng đợi ưu tiên `pq`. `pq` luôn tự động sắp xếp sao cho đỉnh có khoảng cách tạm tính nhỏ nhất (`du`) nằm ở đỉnh (top).
+  * **Bước 4 (Duyệt tối ưu hóa - Relaxation):**
+    * Lấy đỉnh `u` có khoảng cách nhỏ nhất ra khỏi `pq`. Nếu khoảng cách lấy ra `du` khác với `d[u]` hiện tại (bản ghi cũ), ta bỏ qua (`continue`).
+    * Duyệt qua tất cả các đỉnh kề `v` của `u` qua cung có trọng số `w`. Nếu tìm thấy đường đi ngắn hơn (`d[v] > d[u] + w`), ta cập nhật lại `d[v] = d[u] + w` và đẩy `{d[v], v}` vào `pq`.
+
+## 2. Điểm bẫy (Edge Cases) & Câu hỏi vấn đáp thường gặp
+
+* **Thầy cô hỏi:** *"Tại sao ở bước lấy phần tử từ `pq`, ta lại cần dòng lệnh kiểm tra `if (du != d[u]) continue;`?"*
+  * **Trả lời:** Đây là kỹ thuật xử lý **nút rác (Lazy Deletion)** trong `priority_queue` của C++. Khi một đỉnh `v` được cập nhật khoảng cách ngắn hơn ở các bước trước, một bản ghi mới `{d_moi, v}` sẽ được đẩy vào `pq` trong khi bản ghi cũ `{d_cu, v}` (với `d_cu > d_moi`) vẫn nằm ở đâu đó bên trong `pq`. Lệnh kiểm tra này giúp loại bỏ ngay các bản ghi cũ lỗi thời, tránh việc duyệt lặp lại các đỉnh đã được tối ưu, giúp thuật toán chạy nhanh hơn và đúng đắn.
+* **Thầy cô hỏi:** *"Tại sao mảng khoảng cách `d` và khoảng cách trong `pq` lại phải dùng kiểu `long long` và `INF` phải đặt là `1e18` trong khi trọng số mỗi cạnh tối đa chỉ là $100,000$?"*
+  * **Trả lời:** Với số lượng đỉnh $n \le 100,000$, đường đi xấu nhất có thể qua tới $n-1$ cạnh. Tổng trọng số cực đại có thể đạt tới $(100,000) \times (100,000) = 10^{10}$, vượt quá giới hạn của kiểu `int` 32-bit ($\approx 2 \times 10^9$) và gây **tràn số nguyên (Integer Overflow)**. Do đó, bắt buộc phải dùng `long long` và hằng số `INF` lớn như `1e18`.
+* **Thầy cô hỏi:** *"Thuật toán Dijkstra có chạy đúng không nếu đồ thị xuất hiện cung có trọng số âm ($w < 0$)?"*
+  * **Trả lời:** **Không.** Thuật toán Dijkstra dựa trên tính chất tham lam (khi một đỉnh đã được lấy ra khỏi `pq` với khoảng cách nhỏ nhất thì khoảng cách đó là tối ưu vĩnh viễn và không bao giờ giảm được nữa). Nếu đồ thị có trọng số âm, một đỉnh tưởng chừng đã tối ưu có thể bị giảm khoảng cách tiếp sau đó qua một cạnh âm, dẫn đến kết quả sai. Khi có cạnh âm, ta phải dùng thuật toán **Bellman-Ford** hoặc **SPFA**.
+* **Thầy cô hỏi:** *"Độ phức tạp thời gian của thuật toán Dijkstra sử dụng `priority_queue` là bao nhiêu?"*
+  * **Trả lời:** Mỗi cạnh được duyệt qua và mỗi đỉnh được đẩy/lấy khỏi `priority_queue` tối đa một số lần tỷ lệ với bậc của nó. Mỗi thao tác trên `priority_queue` kích thước $M$ tốn $O(\log M) \approx O(\log N)$. Do đó tổng độ phức tạp thời gian là $O((N + M) \log N)$, cực kỳ tối ưu và chạy mượt mà với $N, M \le 10^5$.
+
+## 3. Đoạn Code Cốt Lõi (C++)
+
+```cpp
+#include <bits/stdc++.h>
+using namespace std;
+
+const long long INF = 1e18; // Dùng 1e18 tránh tràn số cho đường đi tổng lớn
+
+int main() {
+    // Tối ưu tốc độ nhập xuất
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n, m;
+    cin >> n >> m;
+
+    // Danh sách kề lưu các cặp {đỉnh_kề, trọng_số}
+    vector<vector<pair<int, int>>> a(n + 1);
+
+    for (int i = 0; i < m; i++) {
+        int u, v, w;
+        cin >> u >> v >> w;
+        a[u].push_back({v, w}); // Đồ thị có hướng
+    }
+
+    int s, t;
+    cin >> s >> t;
+
+    // Mảng lưu khoảng cách ngắn nhất từ s đến mọi đỉnh
+    vector<long long> d(n + 1, INF);
+
+    // Hàng đợi ưu tiên min-heap lưu cặp {khoảng_cách, đỉnh}
+    priority_queue<
+        pair<long long, int>,
+        vector<pair<long long, int>>,
+        greater<pair<long long, int>>
+    > pq;
+
+    d[s] = 0;
+    pq.push({0, s});
+
+    while (!pq.empty()) {
+        auto [du, u] = pq.top();
+        pq.pop();
+
+        // Bỏ qua các bản ghi cũ không tối ưu (Lazy Deletion)
+        if (du != d[u])
+            continue;
+
+        // Nếu đã duyệt tới đích t và không cần tìm gì thêm (có thể dừng sớm nếu chỉ tìm 1 đích s -> t)
+        if (u == t) break; 
+
+        // Duyệt qua các đỉnh kề v của u
+        for (auto [v, w] : a[u]) {
+            if (d[v] > d[u] + w) {
+                d[v] = d[u] + w;
+                pq.push({d[v], v});
+            }
+        }
+    }
+
+    // In kết quả
+    if (d[t] == INF)
+        cout << -1 << '\n';
+    else
+        cout << d[t] << '\n';
+
+    return 0;
+}
+```
+BÀI TOÁN ĐẲNG CẤU ĐỒ THỊ (GRAPH ISOMORPHISM)
+
+---
+
+## 1. TỔNG QUAN BÀI TOÁN
+* **Tên bài toán:** Kiểm tra hai đồ thị vô hướng có **đẳng cấu (Isomorphic)** với nhau hay không.
+* **Khái niệm Đẳng cấu:** Hai đồ thị $A$ và $B$ được gọi là đẳng cấu nếu chúng có cùng cấu trúc (hình dáng), chỉ khác nhau về cách đặt tên các đỉnh. Nói cách khác, tồn tại một phép **song ánh** (ánh xạ 1-1) biến mỗi đỉnh $u \in A$ thành một đỉnh $v = x[u] \in B$ sao cho: Giữa hai đỉnh $u, t$ bên $A$ có cạnh nối **khi và chỉ khi** giữa hai đỉnh tương ứng $x[u], x[t]$ bên $B$ cũng có cạnh nối.
+* **Yêu cầu của chương trình:** 
+  1. Nhập vào một tập hợp gồm $N$ đồ thị mẫu.
+  2. Đọc ký tự phân cách (ví dụ dấu `#`).
+  3. Nhập vào $K$ đồ thị cần kiểm tra. Với mỗi đồ thị, in ra `1` nếu nó đẳng cấu với **ít nhất một** trong số $N$ đồ thị mẫu ban đầu, ngược lại in ra `0`.
+
+---
+
+## 2. GIẢI THÍCH CHI TIẾT TỪNG PHẦN CODE
+
+### 2.1. Cấu trúc dữ liệu `struct Graph`
+```cpp
+struct Graph {
+    int n, m;
+    vector<vector<int>> a;
+    vector<int> d;
+};
+```
+* `n`: Số lượng đỉnh của đồ thị.
+* `m`: Số lượng cạnh của đồ thị.
+* `a`: **Danh sách kề (Adjacency List)**. `a[u]` là một `vector` chứa danh sách các đỉnh kề (có cạnh nối trực tiếp) với đỉnh `u`.
+* `d`: Mảng lưu **bậc của đỉnh (Degree)**. `d[u]` là số lượng cạnh nối trực tiếp với đỉnh `u` (cũng chính là kích thước của `a[u]`).
+
+---
+
+### 2.2. Hàm nhập đồ thị `readGraph()`
+```cpp
+Graph readGraph() {
+    Graph g;
+    cin >> g.n >> g.m;
+
+    g.a.resize(g.n);
+    g.d.assign(g.n, 0);
+
+    for (int i = 0; i < g.m; i++) {
+        int u, v;
+        cin >> u >> v;
+        u--; v--; // Chuyển từ 1-based sang 0-based
+
+        g.a[u].push_back(v);
+        g.a[v].push_back(u);
+
+        g.d[u]++;
+        g.d[v]++;
+    }
+
+    for (int i = 0; i < g.n; i++)
+        sort(g.a[i].begin(), g.a[i].end());
+
+    return g;
+}
+```
+* `u--; v--;`: Đề bài thường đánh số đỉnh từ $1$ đến $n$, trong khi mảng C++ đánh chỉ số từ $0$ đến $n-1$, nên cần trừ đi $1$.
+* `g.a[u].push_back(v); g.a[v].push_back(u);`: Vì đây là **đồ thị vô hướng**, cạnh nối $(u, v)$ có nghĩa là $v$ kề với $u$ và $u$ cũng kề với $v$. Đồng thời bậc của cả hai đỉnh đều tăng lên 1 (`g.d[u]++`, `g.d[v]++`).
+* `sort(g.a[i].begin(), g.a[i].end());`: **Cực kỳ quan trọng!** Sắp xếp danh sách kề của từng đỉnh theo thứ tự tăng dần để lát nữa ở hàm `check` có thể dùng thuật toán **Tìm kiếm nhị phân (`binary_search`)** giúp kiểm tra sự tồn tại của cạnh nhanh hơn.
+
+---
+
+### 2.3. Hàm kiểm tra đẳng cấu `check(Graph &a, Graph &b)`
+
+#### Bước 1: Cắt tỉa cơ bản (Pruning / Lọc nhanh)
+```cpp
+if (a.n != b.n || a.m != b.m)
+    return false;
+
+int n = a.n;
+vector<int> d1 = a.d, d2 = b.d;
+sort(d1.begin(), d1.end());
+sort(d2.begin(), d2.end());
+
+if (d1 != d2)
+    return false;
+```
+* **Điều kiện cần để 2 đồ thị đẳng cấu:**
+  1. Phải có cùng số đỉnh (`a.n == b.n`) và cùng số cạnh (`a.m == b.m`).
+  2. **Dãy bậc (Degree Sequence)** sau khi sắp xếp của 2 đồ thị phải giống hệt nhau (`d1 == d2`). Ví dụ đồ thị $A$ có các đỉnh bậc $(3, 2, 2, 1)$ thì đồ thị $B$ cũng phải có đúng tập bậc đó. Nếu khác nhau thì chắc chắn **không đẳng cấu** và dừng luôn, không cần chạy quay lui tốn thời gian.
+
+#### Bước 2: Chuẩn bị cho thuật toán Quay lui (Backtracking)
+```cpp
+vector<int> p(n), x(n, -1);
+vector<bool> used(n, false);
+
+iota(p.begin(), p.end(), 0);
+
+sort(p.begin(), p.end(), [&](int u, int v) {
+    return a.d[u] > a.d[v];
+});
+```
+* `x[u] = v`: Mảng lưu **phép ánh xạ**. Nghĩa là đỉnh `u` của đồ thị $A$ được ghép tương ứng với đỉnh `v` của đồ thị $B$. Ban đầu khởi tạo là `-1` (chưa ghép).
+* `used[v]`: Mảng đánh dấu đỉnh `v` bên đồ thị $B$ đã được ghép với đỉnh nào bên $A$ chưa (đảm bảo tính chất ánh xạ 1-1).
+* `iota(p.begin(), p.end(), 0)`: Hàm trong thư viện `<numeric>`, có tác dụng gán mảng `p = {0, 1, 2, ..., n - 1}`.
+* `sort(p.begin(), ...)`: Sắp xếp thứ tự duyệt các đỉnh bên đồ thị $A$ theo **bậc giảm dần**. Đây là kỹ thuật tối ưu nhánh cận (Heuristic): Đỉnh có bậc càng lớn thì càng có nhiều ràng buộc (cạnh nối), xét trước sẽ giúp phát hiện sai và cắt nhánh (`break`) sớm hơn rất nhiều.
+
+#### Bước 3: Hàm đệ quy Quay lui `Try(int k)`
+```cpp
+function<bool(int)> Try = [&](int k) {
+    if (k == n)
+        return true; // Đã ghép thành công cả n đỉnh
+
+    int u = p[k]; // Lấy đỉnh thứ k (theo thứ tự bậc giảm dần) của đồ thị A
+
+    for (int v = 0; v < n; v++) {
+        // Chỉ thử ghép u với v nếu v chưa dùng VÀ bậc của u phải bằng bậc của v
+        if (used[v] || a.d[u] != b.d[v])
+            continue;
+
+        bool ok = true;
+
+        // Kiểm tra tính bảo toàn cạnh với các đỉnh đã ghép trước đó (từ 0 đến k-1)
+        for (int j = 0; j < k; j++) {
+            int t = p[j]; // t là đỉnh bên A đã được ghép ở bước j trước đó
+
+            // Kiểm tra xem giữa u và t (bên A) có cạnh nối không
+            bool e1 = binary_search(a.a[u].begin(), a.a[u].end(), t);
+
+            // Kiểm tra xem giữa v và x[t] (bên B) có cạnh nối không
+            bool e2 = binary_search(b.a[v].begin(), b.a[v].end(), x[t]);
+
+            // Nếu 1 bên có cạnh mà bên kia không có -> Cách ghép (u -> v) bị sai
+            if (e1 != e2) {
+                ok = false;
+                break;
+            }
+        }
+
+        // Nếu thỏa mãn toàn bộ ràng buộc cạnh với các đỉnh trước đó
+        if (ok) {
+            x[u] = v;          // Ghi nhận ghép u với v
+            used[v] = true;    // Đánh dấu v đã dùng
+
+            if (Try(k + 1))    // Đệ quy xét đỉnh tiếp theo thứ k + 1
+                return true;
+
+            // QUAY LUI (Backtrack): Trả lại trạng thái cũ để thử ghép u với đỉnh v khác
+            x[u] = -1;
+            used[v] = false;
+        }
+    }
+
+    return false; // Thử mọi đỉnh v đều không ghép được với u
+};
+```
+
+---
+
+### 2.4. Hàm `main()`
+```cpp
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+    // ...
+```
+* `ios::sync_with_stdio(false); cin.tie(nullptr);`: Tối ưu tốc độ nhập xuất (Fast I/O) trong C++ bằng cách ngắt đồng bộ giữa `cin/cout` của C++ và `scanf/printf` của C.
+* Đọc danh sách $N$ đồ thị ban đầu vào `vector<Graph> g(N)`.
+* `cin >> s;`: Đọc bỏ qua chuỗi phân cách (thường là dấu `#` trong đề bài).
+* Vòng lặp `while (K--)`: Đọc từng đồ thị truy vấn `h`, duyệt qua $N$ đồ thị mẫu ban đầu và gọi hàm `check(g[i], h)`. Nếu tìm thấy bất kỳ đồ thị nào đẳng cấu thì gán `ans = true` và `break` ngay lập tức để tiết kiệm thời gian.
+
+---
+
+## 3. CÁC CÂU HỎI THẦY CÔ HAY HỎI TRONG VẤN ĐÁP & CÁCH TRẢ LỜI
+
+### Câu 1: Tại sao trong hàm `readGraph` lại phải `sort` danh sách kề `g.a[i]`? Nếu bỏ dòng `sort` đó đi thì code chạy đúng không?
+* **Trả lời:** 
+  * Phải `sort` vì ở dưới hàm `Try`, em sử dụng hàm `binary_search()` để kiểm tra xem hai đỉnh có kề nhau hay không. 
+  * Điều kiện bắt buộc để dùng tìm kiếm nhị phân (`binary_search`) là mảng phải được sắp xếp tăng dần. 
+  * Nếu bỏ dòng `sort` ở `readGraph` đi, hàm `binary_search` sẽ trả về kết quả **sai**, dẫn đến toàn bộ chương trình chạy sai.
+
+### Câu 2: Tại sao em không dùng Ma trận kề (`bool adj[n][n]`) để kiểm tra có cạnh nối trong $O(1)$ luôn mà lại dùng Danh sách kề kết hợp `binary_search` mất $O(\log(\text{bậc}))$?
+* **Trả lời:**
+  * Dùng Danh sách kề (`vector<vector<int>>`) giúp tiết kiệm bộ nhớ hơn khi đồ thị thưa (số cạnh $m$ nhỏ hơn nhiều so với $n^2$), chỉ tốn bộ nhớ $O(n + m)$ thay vì $O(n^2)$ của ma trận kề.
+  * Tuy nhiên, nếu số đỉnh $n$ của bài toán nhỏ (thường bài đẳng cấu $n \le 20$ hoặc $n \le 50$), em hoàn toàn có thể cải tiến code bằng cách dùng thêm một ma trận kề `adj[u][v]` để tra cứu cạnh trong thời gian $O(1)$ thay cho `binary_search`.
+
+### Câu 3: Giải thích ý nghĩa của đoạn code sắp xếp mảng `p` theo `a.d[u] > a.d[v]`? Nếu không sắp xếp mảng `p` mà xét thẳng các đỉnh từ $0$ đến $n-1$ thì kết quả có đúng không?
+* **Trả lời:**
+  * Nếu không sắp xếp mảng `p`, kết quả vẫn **hoàn toàn đúng**, nhưng chương trình sẽ chạy **chậm hơn rất nhiều**.
+  * Việc sắp xếp `p` theo thứ tự bậc giảm dần (`a.d[u] > a.d[v]`) là một kỹ thuật **cắt tỉa nhánh cận (Pruning / Heuristic)**:
+    1. Số lượng đỉnh có bậc cao thường ít hơn các đỉnh bậc thấp $\rightarrow$ giảm số nhánh thử ban đầu của cây đệ quy.
+    2. Đỉnh có bậc cao thì có nhiều cạnh nối $\rightarrow$ điều kiện kiểm tra `e1 != e2` sẽ khắt khe hơn, giúp phát hiện các phép ghép sai ngay từ những tầng đệ quy đầu tiên và cắt nhánh sớm.
+
+### Câu 4: Hai đồ thị có cùng số đỉnh, cùng số cạnh và cùng dãy bậc (`d1 == d2`) thì đã chắc chắn đẳng cấu chưa? Tại sao phải viết thêm hàm `Try` dài như vậy?
+* **Trả lời:**
+  * **Chưa chắc chắn!** Cùng số đỉnh, số cạnh và cùng dãy bậc chỉ là **điều kiện cần**, không phải **điều kiện đủ**.
+  * *Ví dụ phản chứng:* Đồ thị gồm 6 đỉnh tạo thành 1 vòng tròn lớn ($C_6$) và đồ thị gồm 6 đỉnh tách làm 2 hình tam giác rời nhau ($2 \times C_3$). Cả hai đồ thị này đều có $n = 6$, $m = 6$, và mọi đỉnh đều có bậc bằng $2$ (`d = {2, 2, 2, 2, 2, 2}`), nhưng chúng **không đẳng cấu** với nhau.
+  * Do đó, sau khi lọc nhanh bằng dãy bậc, ta bắt buộc phải dùng hàm quay lui `Try` để tìm chính xác phép ánh xạ đỉnh thỏa mãn cấu trúc cạnh.
+
+### Câu 5: Cú pháp `function<bool(int)> Try = [&](int k) { ... };` là gì? Tại sao có ký hiệu `[&]`?
+* **Trả lời:**
+  * Đây là cú pháp **Lambda Function (Hàm ẩn danh)** trong chuẩn C++11 trở lên, cho phép viết một hàm con ngay bên trong thân hàm `check`.
+  * `function<bool(int)>`: Khai báo kiểu dữ liệu cho hàm lambda (nhận vào 1 số nguyên `int` và trả về `bool`). Phải khai báo tường minh bằng `std::function` thì hàm lambda mới gọi **đệ quy** chính nó được.
+  * `[&]`: Là **Capture list by reference** (Bắt toàn bộ các biến bên ngoài vào hàm theo kiểu tham chiếu). Nhờ có `[&]`, hàm `Try` có thể truy cập và thay đổi trực tiếp các biến cục bộ của hàm `check` như `n`, `a`, `b`, `p`, `x`, `used` mà không cần truyền chúng vào tham số hàm hay khai báo biến toàn cục.
+
+### Câu 6: Độ phức tạp thuật toán của hàm `check` này là bao nhiêu?
+* **Trả lời:**
+  * Bài toán kiểm tra đẳng cấu đồ thị thuộc lớp **NP** (chưa có thuật toán đa thức tổng quát).
+  * Trong trường hợp xấu nhất (Worst-case, ví dụ đồ thị đầy đủ hoặc đồ thị chính quy khi mọi đỉnh có cùng bậc), hàm quay lui `Try` phải duyệt qua các hoán vị đỉnh, có độ phức tạp không gian trạng thái là $O(n!)$.
+  * Ở mỗi bước thử ghép đỉnh thứ $k$, ta duyệt qua $k$ đỉnh trước đó và dùng `binary_search` mất $O(\log n)$.
+  * Vậy độ phức tạp trong trường hợp tệ nhất là $O(n! \cdot n \log n)$. Tuy nhiên, trên thực tế nhờ bước lọc dãy bậc và sắp xếp bậc giảm dần, thuật toán chạy rất nhanh với các bộ dữ liệu thông thường.
+
+### Câu 7: Hàm `iota` nằm trong thư viện nào và hoạt động ra sao? Nếu thầy/cô yêu cầu viết lại mà không dùng `iota` thì viết thế nào?
+* **Trả lời:**
+  * Hàm `iota` nằm trong thư viện `<numeric>` (đã được bao gồm trong `<bits/stdc++.h>`). Nó gán các giá trị tăng dần liên tiếp bắt đầu từ giá trị khởi tạo (ở đây là `0`) cho toàn bộ phần tử của `vector`.
+  * Nếu không dùng `iota(p.begin(), p.end(), 0);`, em chỉ cần thay bằng một vòng lặp `for` đơn giản:
+    ```cpp
+    for (int i = 0; i < n; i++) {
+        p[i] = i;
+    }
+    ```
